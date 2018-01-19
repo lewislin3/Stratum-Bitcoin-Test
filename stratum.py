@@ -43,18 +43,27 @@ print ("clean jobs",clean_jobs)
 
 for extra2 in xrange(0, 0x7fffffff):
 
-	extranonce2 = struct.pack('<I', extra2)
+	extranonce2=str(hex(extra2))[2:]
+	print(extranonce2)
+	extranonce2=extranonce2.zfill(8)
+	print(extranonce2)
 
 
 	#merkle root
 	coinbase = coinb1 + extranonce1 + extranonce2 + coinb2
-	hashbase = hashlib.sha256(coinbase).hexdigest()
+	print("coinbase",coinbase)
+	coinbase = coinbase.decode('hex')
+	#FPGA double hash=>hashase
+	hashbase = hashlib.sha256(hashlib.sha256(byte).digest()).digest()
+
+	merkle_root = hashbase
 	for i in merkle_branch:	
 		#print(i)
 		byte = hashbase + i
-		hashbase = hashlib.sha256(coinbase).hexdigest()
-		
-		merkle_root = hashbase
+		byte = byte.decode('hex')
+		byte = hashlib.sha256(hashlib.sha256(byte).digest()).digest()
+		merkle_root = byte
+
 	print("merkle root", merkle_root)
 
 
@@ -96,8 +105,22 @@ for extra2 in xrange(0, 0x7fffffff):
 	print("header prefix", header_prefix)
 	
 	for n in xrange(0,0x7fffffff, 1):
-		nonce = struct.pack('<I', n)
-		pow = sha256(header_prefix+nonce)[::-1].encode('hex')
+		
+		nonce=str(hex(extra2))[2:]
+		print(nonce)
+		nonce=nonce.zfill(8)
+		print(nonce)
+
+		header_prefix=header_prefix+nonce
+		header_prefix = hashlib.sha256(hashlib.sha256(header_prefix).digest()).digest()
+		# in FPGA hash and check diff
+		# if ok ->mining submit
+
+
+		
+	
+		
+
 		
 
 
