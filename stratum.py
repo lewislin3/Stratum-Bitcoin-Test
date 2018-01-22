@@ -6,6 +6,7 @@ import struct
 import time
 import threading
 
+def working(job_id ,prehash, coinb1, coinb2, merkle_branch, version, nbits, ntimes, clean_jobs,difficult ):
 
 	global threadnum
 
