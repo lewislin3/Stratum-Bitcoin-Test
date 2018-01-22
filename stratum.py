@@ -3,120 +3,151 @@ import json
 import binascii
 import hashlib
 import struct
+import time
+import threading
+
+
+	global threadnum
+
+	for extra2 in xrange(0, 0x0000ffff):
+
+		start=time.time()
+		number=0
+		extranonce2=str(hex(extra2))[2:]
+		extranonce2=extranonce2.zfill(8)
+		
+
+
+		#merkle root
+		coinbase = coinb1 + extranonce1 + extranonce2 + coinb2
+		coinbase = coinbase.decode('hex')
+		#FPGA double hash=>hashase
+		hashbase = (hashlib.sha256(hashlib.sha256(coinbase).digest()).digest()).encode('hex_codec')
+
+		merkle_root = hashbase
+		for i in merkle_branch:	
+			a=i.encode('ascii','ignore')
+			byte = hashbase + a
+			byte = byte.decode('hex')
+			byte = (hashlib.sha256(hashlib.sha256(byte).digest()).digest()).encode('hex_codec')
+			merkle_root = byte
+
+
+
+		#swap version :nversion
+		nversion=""
+		for x in range(-1, -len(version), -2):
+			nversion += version[x-1] + version[x]
+
+
+		#swap prehash :nprehash
+		nprehash = list(prehash)
+		lens=len(prehash)
+		for x in range(0,lens,8):
+
+			nprehash[x]=prehash[x+6]
+			nprehash[x+1]=prehash[x+7]
+			nprehash[x+2]=prehash[x+4]
+			nprehash[x+3]=prehash[x+5]
+			nprehash[x+4]=prehash[x+2]
+			nprehash[x+5]=prehash[x+3]
+			nprehash[x+6]=prehash[x+0]
+			nprehash[x+7]=prehash[x+1]
+
+		nprehash = ''.join(nprehash)
+
+
+		#swap ntime :nntime
+		nntime=""
+		for x in range(-1, -len(ntimes), -2):
+			nntime += ntimes[x-1] + ntimes[x]
+
+
+		#swap nbits :nnbits
+		nnbits=""
+		for x in range(-1, -len(nbits), -2):
+			nnbits += nbits[x-1] + nbits[x]
+
+
+		header_prefix = nversion + nprehash + merkle_root + nntime + nnbits
+	
+		for n in xrange(0,0x0000ffff):
+		
+			nonce=str(hex(n))[2:]
+			nonce=nonce.zfill(8)
+			header_prefix = header_prefix+nonce
+			header_prefix = (hashlib.sha256(hashlib.sha256(header_prefix).digest()).digest()).encode('hex_codec')
+			hp="".join(reversed([header_prefix[i:i+2] for i in range(0, len(header_prefix), 2)]))
+			hp=int(hp,16)
+			#print(n)
+
+			if hp<difficult:
+				ans="{\"params\":[\"lewislin3.123\", \"" + job_id + "\", \"" + extranonce2 + "\", \"" + ntime + "\", \"" + nonce + "\"], \"id\": 4, \"method\": \"momomg.submit\"}"
+				print ans
+				print header_prefix
+				sock.send(ans)
+				print sock.recv(4000)
+			number = number+1
+		print number/(time.time()-start)
+		threadnum -= 1
+
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 sock.connect(("stratum.antpool.com", 3333))
 
 sock.send("""{"id": 1, "method": "mining.subscribe", "params": []}\n""")
 sub_data = sock.recv(4000)
-print (sub_data)
 sub_data = json.loads(sub_data)
 extranonce1 = sub_data['result'][1]
-
 sock.send("""{"params": ["lewislin3.123","x"], "id":2, "method": "mining.authorize"}\n""")
-work = sock.recv(4000)
-print (work.split("\n")[0])
-diff = json.loads(work.split("\n")[0])
-print(diff['params'])
 
-task = json.loads(work.split("\n")[1])
-
-job_id = task['params'][0]
-print ("job id ",job_id)
-prehash = task['params'][1]
-print ("prehash",prehash)
-coinb1 = task['params'][2]
-print ("coinbase1",coinb1)
-coinb2 = task['params'][3]
-print ("coinbase2",coinb2)
-merkle_branch = task['params'][4]
-print ("merkle branch",merkle_branch)
-version = task['params'][5]
-print ("version",version)
-nbits = task['params'][6]
-print ("nbits",nbits)
-ntimes = task['params'][7]
-print ("ntimes",ntimes)
-clean_jobs = task['params'][8]
-print ("clean jobs",clean_jobs)
-
-
-for extra2 in xrange(0, 0x7fffffff):
-
-	extranonce2=str(hex(extra2))[2:]
-	print(extranonce2)
-	extranonce2=extranonce2.zfill(8)
-	print(extranonce2)
-
-
-	#merkle root
-	coinbase = coinb1 + extranonce1 + extranonce2 + coinb2
-	print("coinbase",coinbase)
-	coinbase = coinbase.decode('hex')
-	#FPGA double hash=>hashase
-	hashbase = hashlib.sha256(hashlib.sha256(byte).digest()).digest()
-
-	merkle_root = hashbase
-	for i in merkle_branch:	
-		#print(i)
-		byte = hashbase + i
-		byte = byte.decode('hex')
-		byte = hashlib.sha256(hashlib.sha256(byte).digest()).digest()
-		merkle_root = byte
-
-	print("merkle root", merkle_root)
-
-
-	#swap version :nversion
-	nversion=""
-	for x in range(-1, -len(version), -2):
-		nversion += version[x-1] + version[x]
-
-
-	#swap prehash :nprehash
-	nprehash = list(prehash)
-	lens=len(prehash)
-	for x in range(0,lens,8):
-
-		nprehash[x]=prehash[x+6]
-		nprehash[x+1]=prehash[x+7]
-		nprehash[x+2]=prehash[x+4]
-		nprehash[x+3]=prehash[x+5]
-		nprehash[x+4]=prehash[x+2]
-		nprehash[x+5]=prehash[x+3]
-		nprehash[x+6]=prehash[x+0]
-		nprehash[x+7]=prehash[x+1]
-	nprehash = ''.join(nprehash)
-
-
-	#swap ntime :nntime
-	nntime=""
-	for x in range(-1, -len(ntimes), -2):
-		nntime += ntimes[x-1] + ntimes[x]
-
-
-	#swap nbits :nnbits
-	nnbits=""
-	for x in range(-1, -len(nbits), -2):
-		nnbits += nbits[x-1] + nbits[x]
-
-
-	header_prefix = nversion + nprehash + merkle_root + nntime + nnbits
-	print("header prefix", header_prefix)
+global threadnum
+threadnum=0
+while True:
+	work = sock.recv(4000)
+	print(work)
+	work = work.split("\n")
 	
-	for n in xrange(0,0x7fffffff, 1):
-		
-		nonce=str(hex(extra2))[2:]
-		print(nonce)
-		nonce=nonce.zfill(8)
-		print(nonce)
+	for split_work in work:
+		if split_work != "":
+			now_split_work = json.loads(split_work)
+			# check whether is a work to do or a simple output
+			if 'method' in now_split_work.keys():
 
-		header_prefix=header_prefix+nonce
-		header_prefix = hashlib.sha256(hashlib.sha256(header_prefix).digest()).digest()
+				#setting difficulty
+				if now_split_work['method']=="mining.set_difficulty":
+					difficult = now_split_work['params'][0]
+					a=0x0000FFFF00000000000000000000000000000000000000000000000000000000
+					difficult=a/difficult
+
+				#doing work
+				if now_split_work['method']=="mining.notify":
+					#print(now_split_work)
+					job_id = now_split_work['params'][0]
+					#print("job id",job_id)
+					prehash = now_split_work['params'][1]
+					coinb1 = now_split_work['params'][2]
+					coinb2 = now_split_work['params'][3]
+					merkle_branch = now_split_work['params'][4]
+					version = now_split_work['params'][5]
+					nbits = now_split_work['params'][6]
+					ntimes = now_split_work['params'][7]
+					clean_jobs = now_split_work['params'][8]
+					working(job_id ,prehash, coinb1, coinb2, merkle_branch, version, nbits, ntimes, clean_jobs,difficult )
+					threadnum += 1
+					
+
+
+
+
+
+
+		#print("header_prefix",header_prefix)
 		# in FPGA hash and check diff
 		# if ok ->mining submit
 
 
+
 		
 	
 		
@@ -125,31 +156,4 @@ for extra2 in xrange(0, 0x7fffffff):
 
 
 		
-
-#coinbase = bin(int(binascii.hexlify(coinbase),16))
-#print (coinbase)
-
-'''
-
-	
-nonce="00007f8a"
-nnonce=""
-for x in range(-1, -len(nonce), -2):
-	nnonce += nonce[x-1] + nonce[x]
-print("reverse nonce",nnonce)
-
-
-time = list(ntimes)
-time[7]="d"
-time = ''.join(time)
-print(time)
-
-bytestream = nversion + nprehash + hashbase + nntime + nnbits + "00000000"
-print (bytestream)
-bytestream = bin(int(binascii.hexlify(bytestream),16))
-bytestream = hashlib.sha256(bytestream).hexdigest()
-
-print("bytestream", bytestream)
-
-'''
 
