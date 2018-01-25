@@ -6,118 +6,98 @@ import struct
 import time
 import threading
 
-def working(job_id ,prehash, coinb1, coinb2, merkle_branch, version, nbits, ntimes, clean_jobs,difficult ):
 
-	global threadnum
+def sha256d(instr):
+	instr = instr.decode('hex')
+	instr =  (hashlib.sha256(hashlib.sha256(instr).digest()).digest()).encode('hex_codec')
+	return instr
 
-	for extra2 in xrange(0, 0x0000ffff):
+def is_json(myjson):
+	try:
+		json_object = json.loads(myjson)
+	except ValueError, e:
+		return False
+	return True
 
-		start=time.time()
-		number=0
-		extranonce2=str(hex(extra2))[2:]
-		extranonce2=extranonce2.zfill(8)
-		
-
-
-		#merkle root
-		coinbase = coinb1 + extranonce1 + extranonce2 + coinb2
-		coinbase = coinbase.decode('hex')
-		#FPGA double hash=>hashase
-		hashbase = (hashlib.sha256(hashlib.sha256(coinbase).digest()).digest()).encode('hex_codec')
-
-		merkle_root = hashbase
-		for i in merkle_branch:	
-			a=i.encode('ascii','ignore')
-			byte = hashbase + a
-			byte = byte.decode('hex')
-			byte = (hashlib.sha256(hashlib.sha256(byte).digest()).digest()).encode('hex_codec')
-			merkle_root = byte
-
-
-
-		#swap version :nversion
-		nversion=""
-		for x in range(-1, -len(version), -2):
-			nversion += version[x-1] + version[x]
-
-
-		#swap prehash :nprehash
-		nprehash = list(prehash)
-		lens=len(prehash)
-		for x in range(0,lens,8):
-
-			nprehash[x]=prehash[x+6]
-			nprehash[x+1]=prehash[x+7]
-			nprehash[x+2]=prehash[x+4]
-			nprehash[x+3]=prehash[x+5]
-			nprehash[x+4]=prehash[x+2]
-			nprehash[x+5]=prehash[x+3]
-			nprehash[x+6]=prehash[x+0]
-			nprehash[x+7]=prehash[x+1]
-
-		nprehash = ''.join(nprehash)
-
-
-		#swap ntime :nntime
-		nntime=""
-		for x in range(-1, -len(ntimes), -2):
-			nntime += ntimes[x-1] + ntimes[x]
-
-
-		#swap nbits :nnbits
-		nnbits=""
-		for x in range(-1, -len(nbits), -2):
-			nnbits += nbits[x-1] + nbits[x]
-
-
-		header_prefix = nversion + nprehash + merkle_root + nntime + nnbits
+def working(job_id ,prehash, coinb1, coinb2, merkle_branch, version, nbits, ntimes, clean_jobs, difficult, sock ):
+	start=time.time()
+	print(sock)
+	number=0
+	extranonce2="00000001"
 	
-		for n in xrange(0,0x0000ffff):
-		
-			nonce=str(hex(n))[2:]
-			nonce=nonce.zfill(8)
-			header_prefix = header_prefix+nonce
-			header_prefix = (hashlib.sha256(hashlib.sha256(header_prefix).digest()).digest()).encode('hex_codec')
-			hp="".join(reversed([header_prefix[i:i+2] for i in range(0, len(header_prefix), 2)]))
-			hp=int(hp,16)
-			#print(n)
+	#merkle root
+	coinbase = coinb1 + extranonce1 + extranonce2 + coinb2
+	hashbase = sha256d(coinbase)
 
-			if hp<difficult:
-				ans="{\"params\":[\"lewislin3.123\", \"" + job_id + "\", \"" + extranonce2 + "\", \"" + ntime + "\", \"" + nonce + "\"], \"id\": 4, \"method\": \"momomg.submit\"}"
-				print ans
-				print header_prefix
-				sock.send(ans)
-				print sock.recv(4000)
-			number = number+1
-		print number/(time.time()-start)
-		threadnum -= 1
+	merkle_root = hashbase
+	for i in merkle_branch:	
+		a=i.encode('ascii','ignore')
+		byte = hashbase + a
+		byte = sha256d(byte)
+		merkle_root = byte
+
+	nmr = list(merkle_root)
+	lens=len(merkle_root)
+	for x in range(0,lens,8):
+
+		nmr[x]=merkle_root[x+6]
+		nmr[x+1]=merkle_root[x+7]
+		nmr[x+2]=merkle_root[x+4]
+		nmr[x+3]=merkle_root[x+5]
+		nmr[x+4]=merkle_root[x+2]
+		nmr[x+5]=merkle_root[x+3]
+		nmr[x+6]=merkle_root[x+0]
+		nmr[x+7]=merkle_root[x+1]
+
+	nmr = ''.join(nmr)
+
+	#merkle_root = "".join(reversed([merkle_root[i:i+2] for i in range(0, len(merkle_root), 2)]))
+	header_prefix = version + prehash + nmr + ntimes + nbits 
+	
+	for n in xrange(0,0x000fffff):
+		
+		nonce=str(hex(n))[2:]
+		nonce=nonce.zfill(8)
+		header_prefix = header_prefix + nonce + "000000800000000000000000000000000000000000000000000000000000000000000000000000000000000080020000"
+		header_prefix = sha256d(header_prefix)
+		
+		hp=int(header_prefix,16)
+		#print(n)
+
+		if hp<difficult:
+			ans="{\"params\":[\"lewislin3.123\", \"" + job_id + "\", \"" + extranonce2 + "\", \"" + ntimes + "\", \"" + nonce + "\"], \"id\": 4, \"method\": \"mining.submit\"}\n"
+			print(ans)
+			print(header_prefix)
+			sock.send(ans)
+			
+		number = number+1
+	print ((time.time()-start))
+
+
 
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 sock.connect(("stratum.antpool.com", 3333))
-
 sock.send("""{"id": 1, "method": "mining.subscribe", "params": []}\n""")
-sub_data = sock.recv(4000)
-sub_data = json.loads(sub_data)
-extranonce1 = sub_data['result'][1]
 sock.send("""{"params": ["lewislin3.123","x"], "id":2, "method": "mining.authorize"}\n""")
-
-global threadnum
-threadnum=0
 while True:
 	work = sock.recv(4000)
 	print(work)
 	work = work.split("\n")
 	
 	for split_work in work:
-		if split_work != "":
+		if is_json(split_work):
 			now_split_work = json.loads(split_work)
 			# check whether is a work to do or a simple output
+			if now_split_work['id']==1:
+				extranonce1 = now_split_work['result'][1]
+
 			if 'method' in now_split_work.keys():
 
 				#setting difficulty
 				if now_split_work['method']=="mining.set_difficulty":
 					difficult = now_split_work['params'][0]
+					print ("diff",difficult)
 					a=0x0000FFFF00000000000000000000000000000000000000000000000000000000
 					difficult=a/difficult
 
@@ -134,8 +114,8 @@ while True:
 					nbits = now_split_work['params'][6]
 					ntimes = now_split_work['params'][7]
 					clean_jobs = now_split_work['params'][8]
-					working(job_id ,prehash, coinb1, coinb2, merkle_branch, version, nbits, ntimes, clean_jobs,difficult )
-					threadnum += 1
+					working(job_id ,prehash, coinb1, coinb2, merkle_branch, version, nbits, ntimes, clean_jobs, difficult, sock )
+
 					
 
 
