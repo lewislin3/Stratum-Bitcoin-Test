@@ -77,9 +77,9 @@ def working(job_id ,prehash, coinb1, coinb2, merkle_branch, version, nbits, ntim
 
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock.connect(("stratum.antpool.com", 3333))
+sock.connect(("BTC POOL URL", 3333))
 sock.send("""{"id": 1, "method": "mining.subscribe", "params": []}\n""")
-sock.send("""{"params": ["lewislin3.123","x"], "id":2, "method": "mining.authorize"}\n""")
+sock.send("""{"params": ["USERNAME","x"], "id":2, "method": "mining.authorize"}\n""")
 while True:
 	work = sock.recv(4000)
 	print(work)
