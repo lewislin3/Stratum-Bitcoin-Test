@@ -116,25 +116,4 @@ while True:
 					clean_jobs = now_split_work['params'][8]
 					working(job_id ,prehash, coinb1, coinb2, merkle_branch, version, nbits, ntimes, clean_jobs, difficult, sock )
 
-					
-
-
-
-
-
-
-		#print("header_prefix",header_prefix)
-		# in FPGA hash and check diff
-		# if ok ->mining submit
-
-
-
-		
-	
-		
-
-		
-
-
-		
 
